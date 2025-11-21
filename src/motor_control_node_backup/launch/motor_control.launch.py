@@ -11,7 +11,7 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package='motor_control_node',
-            executable='motor_base',   
+            executable='motor_control',   
             name='motor_control_node',
             output='screen',
             parameters=[str(yaml_file)],
