@@ -17,8 +17,8 @@ class MotorControlNode(Node):
 
         # --- Hard-coded motor configuration (adjust to your setup) ---
         iface = 'can0'        # Linux SocketCAN interface
-        master_id = 0xFF      # Usually 0xFF for the PC/master
-        motor_id = 0x01       # Change to your motor's CAN ID
+        master_id =  1     # Usually 0xFF for the PC/master
+        motor_id = 127       # Change to your motor's CAN ID
         actuator_type = 2     # 0..6, depends on your motor type
 
         self.get_logger().info(

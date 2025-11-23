@@ -33,13 +33,14 @@ def generate_launch_description():
 
     # Low-level CAN / service node (motor_service) in "default" mode
     motor_service_node = Node(
-        package='motor_control_node',
-        executable='motor_service',          # <--- uses motor_service
-        name='motor_control_node',           # matches YAML top key
-        output='screen',
-        parameters=[config_file],
-        condition=mode_is('default'),
-    )
+    package='motor_control_node',
+    executable='motor_service',
+    name='motor_control_node',
+    output='screen',
+    parameters=[
+        {'motor_config_file': config_file},   # ⬅ 把路径作为参数传进去
+    ],
+)
 
     # High-level controller node (motor_control) in "default" mode
     motor_control_node = Node(

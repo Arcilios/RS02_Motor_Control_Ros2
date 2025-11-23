@@ -2,6 +2,8 @@
 
 import rclpy
 from rclpy.node import Node
+import yaml
+import os
 
 from sensor_msgs.msg import JointState
 
@@ -21,35 +23,49 @@ class RobStrideCanNode(Node):
     def __init__(self):
         super().__init__('motor_control_node')
 
-        # Declare and read default parameters
-        self.declare_parameter('default_can_interface', 'can0')
-        self.declare_parameter('default_master_id', 255)
+        # 读取 YAML 文件路径（由 launch 传进来）
+        self.declare_parameter('motor_config_file', '')
+        cfg_path = self.get_parameter(
+            'motor_config_file').get_parameter_value().string_value
 
-        self.default_iface = self.get_parameter(
-            'default_can_interface').get_parameter_value().string_value
-        self.default_master = self.get_parameter(
-            'default_master_id').get_parameter_value().integer_value
+        if not cfg_path or not os.path.exists(cfg_path):
+            self.get_logger().warn(
+                f"motor_config_file not set or not exists: '{cfg_path}', "
+                f"no motors will be created."
+            )
+            self.motors_cfg = {}
+            self.drivers = {}
+        else:
+            self.get_logger().info(f"Loading motor config from: {cfg_path}")
+            with open(cfg_path, 'r') as f:
+                data = yaml.safe_load(f)
 
-        # Read the "motors" sub-namespace
-        # raw_motors is like: {'motors.shoulder_pitch.can_interface': ..., ...}
-        raw_motors = self.get_parameters_by_prefix('motors')
-        self.motors_cfg = self._parse_motors_params(raw_motors)
+            # 兼容两种写法：
+            # 1) 有顶层 motor_control_node: ros__parameters:
+            # 2) 直接 motors: ...
+            if 'motor_control_node' in data:
+                params = data['motor_control_node'].get('ros__parameters', {})
+            else:
+                params = data
 
-        # Mapping: joint_name -> RobStrideMotorLinux instance
-        self.drivers = {}
-        self._create_drivers_from_cfg()
+            self.default_iface = params.get('default_can_interface', 'can0')
+            self.default_master = int(params.get('default_master_id', 255))
+            self.motors_cfg = params.get('motors', {})
 
-        # Create the joint control service
+            # joint_name -> RobStrideMotorLinux
+            self.drivers = {}
+            self._create_drivers_from_cfg()
+
+        # service
         self.srv = self.create_service(
             RobStrideJointControl,
             'robstride_joint_control',
             self.handle_joint_control
         )
 
-        # joint_states publisher
+        # joint_states 发布
         self.joint_state_pub = self.create_publisher(JointState, 'joint_states', 10)
-        # 50 Hz timer to publish joint states
-        self.timer = self.create_timer(0.02, self.publish_joint_states)
+        self.timer = self.create_timer(0.02, self.publish_joint_states)  # 50 Hz
 
         self.get_logger().info(
             f'RobStride CAN node started with joints: {list(self.drivers.keys())}'
